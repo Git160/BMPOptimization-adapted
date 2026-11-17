@@ -1,0 +1,536 @@
+//====================================================
+// 0. 清空数据库
+//====================================================
+MATCH (n) DETACH DELETE n;
+
+
+
+//====================================================
+// 1. 创建治理场景要素节点
+//====================================================
+CREATE
+(:ScenarioFactor {name:'土地利用'}),
+(:ScenarioFactor {name:'农田茶园占比等级'}),
+(:ScenarioFactor {name:'地形位置'}),
+(:ScenarioFactor {name:'治理对象'}),
+(:ScenarioFactor {name:'决策主体'});
+
+
+
+//====================================================
+// 2. 创建配置单元类型节点
+//====================================================
+CREATE
+(:UnitType {
+    name:'地块单元',
+    description:'适用于精细化、地块尺度BMP配置'
+}),
+(:UnitType {
+    name:'乡镇单元',
+    description:'适用于行政统筹管理'
+}),
+(:UnitType {
+    name:'LSU单元',
+    description:'适用于水文过程表达与坡位空间关系表达'
+});
+
+
+
+//====================================================
+// 3. 创建空间关系类型节点
+//====================================================
+CREATE
+(:SpatialRelation {name:'相邻'}),
+(:SpatialRelation {name:'上下游'});
+
+
+
+//====================================================
+// 4. 创建BMP节点
+//====================================================
+CREATE
+
+(:BMP {
+    name:'等高耕作',
+    type:'非结构型',
+    function:'源头控制',
+    construction_cost:750,
+    operation_cost:26.25,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'农田养分管理',
+    type:'非结构型',
+    function:'源头控制',
+    construction_cost:2325,
+    operation_cost:1860,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'茶园养分管理',
+    type:'非结构型',
+    function:'源头控制',
+    construction_cost:10650,
+    operation_cost:8520,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'梯田',
+    type:'结构型',
+    function:'过程拦截',
+    construction_cost:18804.3,
+    operation_cost:635.7,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'生态河道',
+    type:'结构型',
+    function:'过程拦截',
+    construction_cost:387500.8,
+    operation_cost:1905,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'植被过滤带',
+    type:'结构型',
+    function:'末端治理',
+    construction_cost:1030,
+    operation_cost:36.1,
+    cost_unit:'元/hm²'
+}),
+
+(:BMP {
+    name:'滞留池',
+    type:'结构型',
+    function:'末端治理',
+    construction_cost:1262.3,
+    operation_cost:44.2,
+    cost_unit:'元/座'
+});
+
+
+
+//====================================================
+// 5. 创建BMP适用关系（APPLICABLE_TO）
+//====================================================
+
+//--------------------
+// 等高耕作
+//--------------------
+MATCH (b:BMP {name:'等高耕作'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'农田'
+}]->(f);
+
+MATCH (b:BMP {name:'等高耕作'}),
+      (f:ScenarioFactor {name:'地形位置'})
+CREATE (b)-[:APPLICABLE_TO {
+    max_slope:14,
+    description:'坡度小于14°'
+}]->(f);
+
+
+//--------------------
+// 农田养分管理
+//--------------------
+MATCH (b:BMP {name:'农田养分管理'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'农田'
+}]->(f);
+
+
+//--------------------
+// 茶园养分管理
+//--------------------
+MATCH (b:BMP {name:'茶园养分管理'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'茶园'
+}]->(f);
+
+
+//--------------------
+// 梯田
+//--------------------
+MATCH (b:BMP {name:'梯田'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'农田'
+}]->(f);
+
+MATCH (b:BMP {name:'梯田'}),
+      (f:ScenarioFactor {name:'地形位置'})
+CREATE (b)-[:APPLICABLE_TO {
+    min_slope:1,
+    max_slope:14,
+    description:'坡度范围1°~14°'
+}]->(f);
+
+
+//--------------------
+// 生态河道
+//--------------------
+MATCH (b:BMP {name:'生态河道'}),
+      (f:ScenarioFactor {name:'地形位置'})
+CREATE (b)-[:APPLICABLE_TO {
+    max_slope:5,
+    description:'坡度小于5°'
+}]->(f);
+
+
+//--------------------
+// 植被过滤带
+//--------------------
+MATCH (b:BMP {name:'植被过滤带'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'农田'
+}]->(f);
+
+
+//--------------------
+// 滞留池
+//--------------------
+MATCH (b:BMP {name:'滞留池'}),
+      (f:ScenarioFactor {name:'地形位置'})
+CREATE (b)-[:APPLICABLE_TO {
+    required_value:'洪泛区',
+    max_slope:15,
+    description:'位于洪泛区且坡度小于15°'
+}]->(f);
+
+
+
+//====================================================
+// 6. 创建BMP实施偏好关系（IMPLEMENTABLE_ON）
+//====================================================
+
+//====================================================
+// 等高耕作
+//====================================================
+MATCH (b:BMP {name:'等高耕作'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'等高耕作'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+MATCH (b:BMP {name:'等高耕作'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+
+//====================================================
+// 农田养分管理
+//====================================================
+MATCH (b:BMP {name:'农田养分管理'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'农田养分管理'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+MATCH (b:BMP {name:'农田养分管理'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+
+//====================================================
+// 茶园养分管理
+//====================================================
+MATCH (b:BMP {name:'茶园养分管理'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'茶园养分管理'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+MATCH (b:BMP {name:'茶园养分管理'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+
+//====================================================
+// 梯田
+//====================================================
+MATCH (b:BMP {name:'梯田'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+MATCH (b:BMP {name:'梯田'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+MATCH (b:BMP {name:'梯田'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+
+//====================================================
+// 生态河道
+//====================================================
+MATCH (b:BMP {name:'生态河道'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+MATCH (b:BMP {name:'生态河道'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'生态河道'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+
+//====================================================
+// 植被过滤带
+//====================================================
+MATCH (b:BMP {name:'植被过滤带'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'植被过滤带'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+MATCH (b:BMP {name:'植被过滤带'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+
+//====================================================
+// 滞留池
+//====================================================
+MATCH (b:BMP {name:'滞留池'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:2}]->(u);
+
+MATCH (b:BMP {name:'滞留池'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:1}]->(u);
+
+MATCH (b:BMP {name:'滞留池'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (b)-[:IMPLEMENTABLE_ON {preference:3}]->(u);
+
+
+
+//====================================================
+// 7. 创建配置单元空间关系表达能力
+//====================================================
+
+// 地块单元 -> 相邻
+MATCH (u:UnitType {name:'地块单元'}),
+      (s:SpatialRelation {name:'相邻'})
+CREATE (u)-[:CAN_EXPRESS]->(s);
+
+// 乡镇单元 -> 相邻
+MATCH (u:UnitType {name:'乡镇单元'}),
+      (s:SpatialRelation {name:'相邻'})
+CREATE (u)-[:CAN_EXPRESS]->(s);
+
+// LSU单元 -> 相邻
+MATCH (u:UnitType {name:'LSU单元'}),
+      (s:SpatialRelation {name:'相邻'})
+CREATE (u)-[:CAN_EXPRESS]->(s);
+
+// LSU单元 -> 上下游
+MATCH (u:UnitType {name:'LSU单元'}),
+      (s:SpatialRelation {name:'上下游'})
+CREATE (u)-[:CAN_EXPRESS]->(s);
+
+
+
+//====================================================
+// 8. 创建治理场景 -> 配置单元偏好关系（PREFER_TO）
+//====================================================
+
+//--------------------
+// 高
+//--------------------
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'高',
+    preference:3
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'高',
+    preference:2
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'高',
+    preference:1
+}]->(u);
+
+
+//--------------------
+// 中
+//--------------------
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'中',
+    preference:2
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'中',
+    preference:3
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'中',
+    preference:2
+}]->(u);
+
+
+//--------------------
+// 低
+//--------------------
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'地块单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'低',
+    preference:1
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'乡镇单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'低',
+    preference:2
+}]->(u);
+
+MATCH (f:ScenarioFactor {name:'农田茶园占比等级'}),
+      (u:UnitType {name:'LSU单元'})
+CREATE (f)-[:PREFER_TO {
+    factor_value:'低',
+    preference:3
+}]->(u);
+
+
+
+//====================================================
+// 9. 创建行政区节点
+//====================================================
+CREATE
+(:AdminDistrict {name:'白云乡'}),
+(:AdminDistrict {name:'白樟镇'}),
+(:AdminDistrict {name:'白中镇'}),
+(:AdminDistrict {name:'坂东镇'}),
+(:AdminDistrict {name:'池园镇'}),
+(:AdminDistrict {name:'大洋镇'}),
+(:AdminDistrict {name:'红星乡'}),
+(:AdminDistrict {name:'金沙镇'}),
+(:AdminDistrict {name:'梅城镇'}),
+(:AdminDistrict {name:'梅溪镇'}),
+(:AdminDistrict {name:'盘谷乡'}),
+(:AdminDistrict {name:'三溪乡'}),
+(:AdminDistrict {name:'上莲乡'}),
+(:AdminDistrict {name:'省璜镇'}),
+(:AdminDistrict {name:'塔庄镇'}),
+(:AdminDistrict {name:'汤川乡'}),
+(:AdminDistrict {name:'霞拔乡'}),
+(:AdminDistrict {name:'云龙乡'});
+
+
+
+//====================================================
+// 10. 创建行政区治理场景关系
+//====================================================
+
+//====================================================
+// 白云乡
+//====================================================
+MATCH (a:AdminDistrict {name:'白云乡'}),
+      (f:ScenarioFactor {name:'土地利用'})
+CREATE (a)-[:HAS_FACTOR {value:'林地'}]->(f);
+
+MATCH (a:AdminDistrict {name:'白云乡'}),
+      (f:ScenarioFactor {name:'农田茶园占比等级'})
+CREATE (a)-[:HAS_FACTOR {value:'低'}]->(f);
+
+MATCH (a:AdminDistrict {name:'白云乡'}),
+      (f:ScenarioFactor {name:'地形位置'})
+CREATE (a)-[:HAS_FACTOR {value:'坡地、洪泛区'}]->(f);
+
+MATCH (a:AdminDistrict {name:'白云乡'}),
+      (f:ScenarioFactor {name:'治理对象'})
+CREATE (a)-[:HAS_FACTOR {value:'总氮'}]->(f);
+
+MATCH (a:AdminDistrict {name:'白云乡'}),
+      (f:ScenarioFactor {name:'决策主体'})
+CREATE (a)-[:HAS_FACTOR {value:'乡镇政府'}]->(f);
+
+
+
+//====================================================
+// 其余行政区（统一模板）
+//====================================================
+WITH [
+'白樟镇','白中镇','坂东镇','池园镇','大洋镇',
+'红星乡','金沙镇','梅城镇','梅溪镇','盘谷乡',
+'三溪乡','上莲乡','省璜镇','塔庄镇','汤川乡',
+'霞拔乡','云龙乡'
+] AS towns
+
+UNWIND towns AS town
+
+MATCH (a:AdminDistrict {name:town}),
+      (f1:ScenarioFactor {name:'土地利用'}),
+      (f3:ScenarioFactor {name:'地形位置'}),
+      (f4:ScenarioFactor {name:'治理对象'}),
+      (f5:ScenarioFactor {name:'决策主体'})
+
+CREATE (a)-[:HAS_FACTOR {value:'林地、农田、茶园'}]->(f1)
+CREATE (a)-[:HAS_FACTOR {value:'坡地、洪泛区'}]->(f3)
+CREATE (a)-[:HAS_FACTOR {value:'总氮'}]->(f4)
+CREATE (a)-[:HAS_FACTOR {value:'乡镇政府'}]->(f5);
+
+
+
+//====================================================
+// 11. 创建占比等级实例
+//====================================================
+
+// 高
+WITH ['白中镇','坂东镇'] AS towns
+UNWIND towns AS town
+MATCH (a:AdminDistrict {name:town}),
+      (f:ScenarioFactor {name:'农田茶园占比等级'})
+CREATE (a)-[:HAS_FACTOR {value:'高'}]->(f);
+
+// 中
+WITH ['白樟镇','池园镇','金沙镇','梅溪镇','盘谷乡','省璜镇','塔庄镇','云龙乡'] AS towns
+UNWIND towns AS town
+MATCH (a:AdminDistrict {name:town}),
+      (f:ScenarioFactor {name:'农田茶园占比等级'})
+CREATE (a)-[:HAS_FACTOR {value:'中'}]->(f);
+
+// 低
+WITH ['大洋镇','红星乡','梅城镇','三溪乡','上莲乡','汤川乡','霞拔乡'] AS towns
+UNWIND towns AS town
+MATCH (a:AdminDistrict {name:town}),
+      (f:ScenarioFactor {name:'农田茶园占比等级'})
+CREATE (a)-[:HAS_FACTOR {value:'低'}]->(f);
